@@ -655,62 +655,39 @@ export default function NCSportsHub() {
   const [liveScores, setLiveScores] = useState({ hornets: null, hurricanes: null });
   const [scoresLoading, setScoresLoading] = useState(false);
 
-  const fetchLiveScores = useCallback(async () => {
-    const apiKey = import.meta.env.VITE_SPORTS_API_KEY;
-    if (!apiKey) return;
-    setScoresLoading(true);
-    try {
-      const today = new Date().toISOString().slice(0,10).replace(/-/g,"");
-      const [nbaRes, nhlRes] = await Promise.all([
-        fetch(`https://tank01-fantasy-stats.p.rapidapi.com/getNBAScoresForDate?gameDate=${today}&topPerformers=true`, {
-          headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tank01-fantasy-stats.p.rapidapi.com" }
-        }),
-        fetch(`https://tank01-nhl-live-in-game-real-time-statistics.p.rapidapi.com/getNHLScoresForDate?gameDate=${today}`, {
-          headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tank01-nhl-live-in-game-real-time-statistics.p.rapidapi.com" }
-        }),
-      ]);
-      const nbaData = await nbaRes.json();
-      const nhlData = await nhlRes.json();
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Cache-Control", "s-maxage=30");
 
-      // Parse Hornets
-      const nbaGames = Object.values(nbaData?.body || {});
-      const hornetsGame = nbaGames.find(g => g.home === "CHA" || g.away === "CHA");
-      if (hornetsGame) {
-        setLiveScores(prev => ({ ...prev, hornets: {
-          away: hornetsGame.away, awayScore: hornetsGame.awayPts,
-          home: hornetsGame.home, homeScore: hornetsGame.homePts,
-          period: hornetsGame.gameClock || hornetsGame.gameStatus || "LIVE",
-          live: hornetsGame.gameStatus === "Live",
-        }}));
-      }
+  try {
+    // Get live scores and playoff series simultaneously
+    const [liveRes, seriesRes] = await Promise.all([
+      fetch("https://api-web.nhle.com/v1/score/now"),
+      fetch("https://api-web.nhle.com/v1/playoff-series/carousel/20252026"),
+    ]);
 
-      // Parse Hurricanes
-      const nhlGames = Object.values(nhlData?.body || {});
-      const canesGame = nhlGames.find(g => 
-  g.home === "CAR" || g.away === "CAR" ||
-  g.home === "Carolina" || g.away === "Carolina" ||
-  g.homeLong?.includes("Carolina") || g.awayLong?.includes("Carolina")
-);
+    const liveData = await liveRes.json();
+    const seriesData = await seriesRes.json();
 
-      if (canesGame) {
-        setLiveScores(prev => ({ ...prev, hurricanes: {
-          away: canesGame.away, awayScore: canesGame.awayPts,
-          home: canesGame.home, homeScore: canesGame.homePts,
-          period: canesGame.gameClock || canesGame.gameStatus || "LIVE",
-          live: canesGame.gameStatus === "Live",
-        }}));
-      }
-    } catch (e) {
-      console.error("Scores fetch failed:", e);
-    }
-    setScoresLoading(false);
-  }, []);
+    // Find any live or recent Canes game today
+    const canesGame = liveData?.games?.find(g =>
+      g.homeTeam?.abbrev === "CAR" || g.awayTeam?.abbrev === "CAR"
+    );
 
-  useEffect(() => {
-    fetchLiveScores();
-    const interval = setInterval(fetchLiveScores, 30000);
-    return () => clearInterval(interval);
-  }, [fetchLiveScores]);
+    // Find Canes series from playoff carousel
+    const allSeries = seriesData?.rounds?.flatMap(r => r.series || []) || [];
+    const canesSeries = allSeries.filter(s =>
+      s.topSeedTeam?.abbrev === "CAR" || s.bottomSeedTeam?.abbrev === "CAR"
+    );
+
+    res.status(200).json({
+      liveGame: canesGame || null,
+      series: canesSeries,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+}
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Ask me anything about NC sports — analytics, matchups, predictions, roster moves. I'm here." }
   ]);
