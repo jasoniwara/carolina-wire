@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 const STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -653,6 +653,60 @@ export default function NCSportsHub() {
   const [activeTeam, setActiveTeam] = useState("unc");
   const [activeTab, setActiveTab] = useState("stories");
   const [openStory, setOpenStory] = useState(null);
+  const [liveScores, setLiveScores] = useState({ hornets: null, hurricanes: null });
+  const [scoresLoading, setScoresLoading] = useState(false);
+
+  const fetchLiveScores = useCallback(async () => {
+    const apiKey = import.meta.env.VITE_SPORTS_API_KEY;
+    if (!apiKey) return;
+    setScoresLoading(true);
+    try {
+      const today = new Date().toISOString().slice(0,10).replace(/-/g,"");
+      const [nbaRes, nhlRes] = await Promise.all([
+        fetch(`https://tank01-fantasy-stats.p.rapidapi.com/getNBAScoresForDate?gameDate=${today}&topPerformers=true`, {
+          headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tank01-fantasy-stats.p.rapidapi.com" }
+        }),
+        fetch(`https://tank01-nhl-live-in-game-real-time-statistics.p.rapidapi.com/getNHLScoresForDate?gameDate=${today}`, {
+          headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": "tank01-nhl-live-in-game-real-time-statistics.p.rapidapi.com" }
+        }),
+      ]);
+      const nbaData = await nbaRes.json();
+      const nhlData = await nhlRes.json();
+
+      // Parse Hornets
+      const nbaGames = Object.values(nbaData?.body || {});
+      const hornetsGame = nbaGames.find(g => g.home === "CHA" || g.away === "CHA");
+      if (hornetsGame) {
+        setLiveScores(prev => ({ ...prev, hornets: {
+          away: hornetsGame.away, awayScore: hornetsGame.awayPts,
+          home: hornetsGame.home, homeScore: hornetsGame.homePts,
+          period: hornetsGame.gameClock || hornetsGame.gameStatus || "LIVE",
+          live: hornetsGame.gameStatus === "Live",
+        }}));
+      }
+
+      // Parse Hurricanes
+      const nhlGames = Object.values(nhlData?.body || {});
+      const canesGame = nhlGames.find(g => g.home === "CAR" || g.away === "CAR");
+      if (canesGame) {
+        setLiveScores(prev => ({ ...prev, hurricanes: {
+          away: canesGame.away, awayScore: canesGame.awayPts,
+          home: canesGame.home, homeScore: canesGame.homePts,
+          period: canesGame.gameClock || canesGame.gameStatus || "LIVE",
+          live: canesGame.gameStatus === "Live",
+        }}));
+      }
+    } catch (e) {
+      console.error("Scores fetch failed:", e);
+    }
+    setScoresLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchLiveScores();
+    const interval = setInterval(fetchLiveScores, 30000);
+    return () => clearInterval(interval);
+  }, [fetchLiveScores]);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Ask me anything about NC sports — analytics, matchups, predictions, roster moves. I'm here." }
   ]);
@@ -702,7 +756,8 @@ export default function NCSportsHub() {
   };
 
   const stories = STORIES[activeTeam] || [];
-  const scores = SCORES[activeTeam] || [];
+  const liveGame = liveScores[activeTeam];
+  const scores = liveGame ? [liveGame] : (SCORES[activeTeam] || []);
   const leaders = LEADERS[activeTeam] || [];
   const featured = stories.find(s => s.featured);
   const rest = stories.filter(s => !s.featured);
