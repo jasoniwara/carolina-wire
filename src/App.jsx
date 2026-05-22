@@ -607,8 +607,6 @@ const SCORES = {
   hurricanes: [
     { away: "MTL", awayRec: "47-26-9", awayScore: null, home: "CAR", homeRec: "53-22-7", homeScore: null, period: "SAT MAY 23 7PM ET", live: false, sport: "NHL · ECF GM2" },
   ],
-
-  ],
   fc: [
     { away: "NC FC", awayRec: "8-3-2", awayScore: 2, home: "Charleston", homeRec: "7-5-1", homeScore: 1, period: "FINAL", live: false, sport: "USL" },
     { away: "Memphis", awayRec: "9-2-2", awayScore: null, home: "NC FC", homeRec: "8-3-2", homeScore: null, period: "SAT 7:30PM", live: false, sport: "USL" },
