@@ -605,8 +605,9 @@ const SCORES = {
     { away: "Charlotte", awayRec: "43-39", awayScore: null, home: "Orlando", homeRec: "41-41", homeScore: null, period: "TUE 7PM", live: false, sport: "NBA" },
   ],
   hurricanes: [
-    { away: "Carolina", awayRec: "49-25-8", awayScore: 3, home: "NYR", homeRec: "47-27-8", homeScore: 2, period: "FINAL/OT", live: false, sport: "NHL" },
-    { away: "NJD", awayRec: "44-30-8", awayScore: null, home: "Carolina", homeRec: "50-25-8", homeScore: null, period: "WED 7PM", live: false, sport: "NHL" },
+    { away: "MTL", awayRec: "47-26-9", awayScore: null, home: "CAR", homeRec: "53-22-7", homeScore: null, period: "SAT MAY 23 7PM ET", live: false, sport: "NHL · ECF GM2" },
+  ],
+
   ],
   fc: [
     { away: "NC FC", awayRec: "8-3-2", awayScore: 2, home: "Charleston", homeRec: "7-5-1", homeScore: 1, period: "FINAL", live: false, sport: "USL" },
@@ -687,7 +688,12 @@ export default function NCSportsHub() {
 
       // Parse Hurricanes
       const nhlGames = Object.values(nhlData?.body || {});
-      const canesGame = nhlGames.find(g => g.home === "CAR" || g.away === "CAR");
+      const canesGame = nhlGames.find(g => 
+  g.home === "CAR" || g.away === "CAR" ||
+  g.home === "Carolina" || g.away === "Carolina" ||
+  g.homeLong?.includes("Carolina") || g.awayLong?.includes("Carolina")
+);
+
       if (canesGame) {
         setLiveScores(prev => ({ ...prev, hurricanes: {
           away: canesGame.away, awayScore: canesGame.awayPts,
