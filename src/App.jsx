@@ -422,7 +422,9 @@ export default function NCSportsHub() {
     setLoading(false);
   };
 
-  const stories = STORIES[activeTeam] || [];
+  const stories = (storiesLoaded && notionStories[activeTeam]?.length)
+  ? notionStories[activeTeam]
+  : STORIES[activeTeam] || [];
   const scores = SCORES[activeTeam] || [];
   const leaders = LEADERS[activeTeam] || [];
   const featured = stories.find(s => s.featured);
