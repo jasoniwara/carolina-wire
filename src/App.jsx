@@ -318,6 +318,8 @@ export default function NCSportsHub() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [barsVisible, setBarsVisible] = useState(false);
+  const [notionStories, setNotionStories] = useState({});
+  const [storiesLoaded, setStoriesLoaded] = useState(false);
   const msgEndRef = useRef(null);
 
   const fetchAll = useCallback(async () => {
@@ -356,6 +358,18 @@ export default function NCSportsHub() {
           period: g.gameStatus || g.gameClock || "LIVE",
           live: g.gameStatus === "Live",
         }}));
+      const storiesRes = await fetch("/api/stories").then(r => r.json()).catch(() => ({}));
+      if (storiesRes.stories?.length) {
+        const grouped = {};
+        storiesRes.stories.forEach(s => {
+          const team = s.team.toLowerCase();
+          if (!grouped[team]) grouped[team] = [];
+          grouped[team].push(s);
+        });
+        setNotionStories(grouped);
+        setStoriesLoaded(true);
+       }
+
       }
     } catch(e) { console.error("Fetch error:", e); }
   }, []);
