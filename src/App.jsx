@@ -383,28 +383,113 @@ export default function NCSportsHub() {
   const [barsVisible, setBarsVisible] = useState(false);
   const msgEndRef = useRef(null);
 
-  const fetchCanesPlayoffData = useCallback(async () => {
-    try {
-      const res = await fetch("/api/nhl");
-      const data = await res.json();
-      if (data.liveGame) {
-        const g = data.liveGame;
-        setLiveScores(prev => ({ ...prev, hurricanes: {
-          away: g.awayTeam.abbrev,
-          awayScore: g.awayTeam.score,
-          home: g.homeTeam.abbrev,
-          homeScore: g.homeTeam.score,
-          period: g.gameState === "FINAL" ? "FINAL" :
-                  g.periodDescriptor?.periodType === "OT" ? "OVERTIME" :
-                  g.periodDescriptor?.periodType === "SO" ? "SHOOTOUT" :
-                  `P${g.periodDescriptor?.number} ${g.clock?.timeRemaining || ""}`,
-          live: g.gameState === "LIVE",
-        }}));
-      }
-    } catch(e) {
-      console.error("NHL fetch failed:", e);
+  const GAME_HOURS = { start: 18, end: 24 };
+const IDLE_TIMEOUT = 30 * 60 * 1000;
+
+const isGameTime = () => {
+  const h = new Date().getHours();
+  return h >= GAME_HOURS.start && h < GAME_HOURS.end;
+};
+
+const fetchCanesPlayoffData = useCallback(async () => {
+  try {
+    const res = await fetch("/api/nhl");
+    const data = await res.json();
+    if (data.liveGame) {
+      const g = data.liveGame;
+      setLiveScores(prev => ({ ...prev, hurricanes: {
+        away: g.awayTeam.abbrev, awayScore: g.awayTeam.score,
+        home: g.homeTeam.abbrev, homeScore: g.homeTeam.score,
+        period: g.gameState === "FINAL" ? "FINAL" :
+                g.periodDescriptor?.periodType === "OT" ? "OVERTIME" :
+                g.periodDescriptor?.periodType === "SO" ? "SHOOTOUT" :
+                `P${g.periodDescriptor?.number} ${g.clock?.timeRemaining || ""}`,
+        live: g.gameState === "LIVE",
+      }}));
     }
-  }, []);
+  } catch(e) { console.error("NHL fetch failed:", e); }
+}, []);
+
+const fetchHornetsData = useCallback(async () => {
+  try {
+    const res = await fetch("/api/nba");
+    const data = await res.json();
+    if (data.liveGame) {
+      const g = data.liveGame;
+      setLiveScores(prev => ({ ...prev, hornets: {
+        away: g.away, awayScore: g.awayPts,
+        home: g.home, homeScore: g.homePts,
+        period: g.gameStatus || g.gameClock || "LIVE",
+        live: g.gameStatus === "Live",
+      }}));
+    }
+  } catch(e) { console.error("NBA fetch failed:", e); }
+}, []);
+
+const fetchPanthersData = useCallback(async () => {
+  try {
+    const res = await fetch("/api/nfl");
+    const data = await res.json();
+    if (data.liveGame) {
+      const g = data.liveGame;
+      setLiveScores(prev => ({ ...prev, panthers: {
+        away: g.away, awayScore: g.awayPts,
+        home: g.home, homeScore: g.homePts,
+        period: g.gameStatus || g.gameClock || "LIVE",
+        live: g.gameStatus === "Live",
+      }}));
+    }
+  } catch(e) { console.error("NFL fetch failed:", e); }
+}, []);
+
+useEffect(() => {
+  let interval = null;
+  let idleTimer = null;
+  let isIdle = false;
+
+  const resetIdle = () => {
+    isIdle = false;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => { isIdle = true; }, IDLE_TIMEOUT);
+  };
+
+  const poll = () => {
+    if (document.hidden || isIdle || !isGameTime()) return;
+    fetchCanesPlayoffData();
+    fetchHornetsData();
+    fetchPanthersData();
+  };
+
+  const handleVisibility = () => {
+    if (!document.hidden && !isIdle && isGameTime()) {
+      fetchCanesPlayoffData();
+      fetchHornetsData();
+      fetchPanthersData();
+    }
+  };
+
+  // Initial fetch regardless of time (for static data)
+  fetchCanesPlayoffData();
+  fetchHornetsData();
+  fetchPanthersData();
+
+  resetIdle();
+  interval = setInterval(poll, 30000);
+
+  document.addEventListener("visibilitychange", handleVisibility);
+  ["mousemove","keydown","click","scroll"].forEach(e =>
+    document.addEventListener(e, resetIdle)
+  );
+
+  return () => {
+    clearInterval(interval);
+    clearTimeout(idleTimer);
+    document.removeEventListener("visibilitychange", handleVisibility);
+    ["mousemove","keydown","click","scroll"].forEach(e =>
+      document.removeEventListener(e, resetIdle)
+    );
+  };
+}, [fetchCanesPlayoffData, fetchHornetsData, fetchPanthersData]);
 
   useEffect(() => {
     fetchCanesPlayoffData();
