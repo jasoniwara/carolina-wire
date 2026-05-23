@@ -26,7 +26,7 @@ export default async function handler(req, res) {
       return {
         id: page.id,
         featured: p.Featured?.checkbox || false,
-        type: p.Type?.rich_text?.[0]?.plain_text || "Story",
+        type: p.Type?.select?.[0]?.name || "Story",
         team: p.Team?.select?.name || "",
         badge: `badge-${p.Team?.select?.name?.toLowerCase() || "analysis"}`,
         headline: p.Title?.title?.[0]?.plain_text || "",
