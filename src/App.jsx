@@ -350,7 +350,7 @@ export default function NCSportsHub() {
           live: g.gameStatus === "Live",
         }}));
       }
-      if (nfl.liveGame) {
+            if (nfl.liveGame) {
         const g = nfl.liveGame;
         setLiveScores(prev => ({ ...prev, panthers: {
           away: g.away, awayScore: g.awayPts,
@@ -358,6 +358,8 @@ export default function NCSportsHub() {
           period: g.gameStatus || g.gameClock || "LIVE",
           live: g.gameStatus === "Live",
         }}));
+      }
+
       const storiesRes = await fetch("/api/stories").then(r => r.json()).catch(() => ({}));
       if (storiesRes.stories?.length) {
         const grouped = {};
@@ -368,9 +370,8 @@ export default function NCSportsHub() {
         });
         setNotionStories(grouped);
         setStoriesLoaded(true);
-       }
-
       }
+
     } catch(e) { console.error("Fetch error:", e); }
   }, []);
 
