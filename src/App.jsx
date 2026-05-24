@@ -553,8 +553,8 @@ export default function NCSportsHub() {
                       <div className="section-title">2026 Stanley Cup Playoffs</div>
                       <span style={{ fontFamily:"var(--font-mono)", fontSize:"0.65rem", color:"var(--carolina)" }}>8-1 Overall</span>
                     </div>
-                    {liveGame && (
-                      <div className="score-card" style={{ borderColor:"var(--red)", marginBottom:"1.5rem" }}>
+                    {liveGame && liveGame.live && (
+ 		      <div className="score-card" style={{ borderColor:"var(--red)", marginBottom:"1.5rem" }}>
                         <div className="score-card-header">
                           <span>NHL · ECF · LIVE</span>
                           {liveGame.live?<span className="score-live">Live</span>:<span>{liveGame.period}</span>}
