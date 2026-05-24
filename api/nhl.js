@@ -2,11 +2,6 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "s-maxage=30");
   try {
-    const now = new Date();
-    const hour = now.getHours();
-    if (hour < 18 || hour >= 24) {
-      return res.status(200).json({ liveGame: null, offHours: true });
-    }
     const [liveRes, seriesRes] = await Promise.all([
       fetch("https://api-web.nhle.com/v1/score/now"),
       fetch("https://api-web.nhle.com/v1/playoff-series/carousel/20252026"),

@@ -3,11 +3,6 @@ export default async function handler(req, res) {
   res.setHeader("Cache-Control", "s-maxage=30");
   const apiKey = process.env.VITE_SPORTS_API_KEY;
   try {
-    const now = new Date();
-    const hour = now.getHours();
-    if (hour < 18 || hour >= 24) {
-      return res.status(200).json({ liveGame: null, offHours: true });
-    }
     const today = now.toISOString().slice(0,10).replace(/-/g,"");
     const r = await fetch(
       `https://tank01-fantasy-stats.p.rapidapi.com/getNBAScoresForDate?gameDate=${today}&topPerformers=false`,
