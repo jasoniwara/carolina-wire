@@ -882,7 +882,7 @@ export default function NCSportsHub() {
                             key={gi}
                             className={`score-card ${g.win !== null ? "clickable" : ""}`}
                             style={{ animationDelay:`${gi*0.06}s`, opacity:g.homeScore===null?0.5:1 }}
-                            onClick={() => g.win !== null && g.raw && openBoxScore(g.raw, "nhl")}
+                            onClick={() => g.win !== null && openBoxScore(g, "nhl")}
                           >
                             <div className="score-card-header">
                               <span>Game {g.seriesGameNumber || gi+1}</span>
