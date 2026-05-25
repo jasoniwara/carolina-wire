@@ -14,19 +14,36 @@ export default async function handler(req, res) {
       g.homeTeam?.abbrev === "CAR" || g.awayTeam?.abbrev === "CAR"
     );
 
-    // Filter to only playoff games (gameType 3)
-    const playoffGames = (scheduleData?.games || [])
-      .filter(g => g.gameType === 3)
-      .map(g => ({
+    // Filter playoff games only
+    const playoffGames = (scheduleData?.games || []).filter(g => g.gameType === 3);
+
+    // For completed games, fetch box score data (goals)
+    const completedGames = playoffGames.filter(g => g.gameState === "OFF" || g.gameState === "FINAL");
+    const boxScorePromises = completedGames.map(g =>
+      fetch(`https://api-web.nhle.com/v1/gamecenter/${g.id}/play-by-play`)
+        .then(r => r.json())
+        .catch(() => null)
+    );
+    const boxScores = await Promise.all(boxScorePromises);
+    const boxScoreMap = {};
+    completedGames.forEach((g, i) => {
+      if (boxScores[i]) boxScoreMap[g.id] = boxScores[i];
+    });
+
+    const parseGame = (g) => {
+      const box = boxScoreMap[g.id];
+      const goals = box?.goals || [];
+      return {
         id: g.id,
         gameDate: g.gameDate,
         away: g.awayTeam?.abbrev,
         home: g.homeTeam?.abbrev,
         awayScore: g.awayTeam?.score ?? null,
         homeScore: g.homeTeam?.score ?? null,
+        awayTeam: g.awayTeam,
+        homeTeam: g.homeTeam,
         gameState: g.gameState,
         seriesGameNumber: g.seriesStatus?.seriesGameNumber,
-        seriesAbbrev: g.seriesStatus?.seriesAbbrev,
         opponent: g.homeTeam?.abbrev === "CAR" ? g.awayTeam?.abbrev : g.homeTeam?.abbrev,
         period: (g.gameState === "OFF" || g.gameState === "FINAL") ?
                 (g.gameOutcome?.lastPeriodType === "OT" ? "FINAL/OT" : "FINAL") :
@@ -35,32 +52,44 @@ export default async function handler(req, res) {
                 (g.gameState === "LIVE" || g.gameState === "CRIT") ? "LIVE" : g.gameState,
         win: (g.gameState === "OFF" || g.gameState === "FINAL") ?
              (g.homeTeam?.abbrev === "CAR" ? g.homeTeam.score > g.awayTeam.score : g.awayTeam.score > g.homeTeam.score) : null,
-      }));
+        gameOutcome: g.gameOutcome,
+        goals,
+        periodDescriptor: g.periodDescriptor,
+        clock: g.clock,
+      };
+    };
+
+    const parsedGames = playoffGames.map(parseGame);
 
     // Group by opponent into rounds
-    const rounds = [];
-    const opponentOrder = [...new Set(playoffGames.map(g => g.opponent))];
-    const opponentNames = { "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "MTL": "Montreal Canadiens" };
+    const opponentOrder = [...new Set(parsedGames.map(g => g.opponent))];
+    const opponentNames = {
+      "OTT": "Ottawa Senators",
+      "PHI": "Philadelphia Flyers",
+      "MTL": "Montreal Canadiens",
+      "TBL": "Tampa Bay Lightning",
+      "BOS": "Boston Bruins",
+      "FLA": "Florida Panthers",
+      "NYR": "New York Rangers",
+      "NJD": "New Jersey Devils",
+    };
+    const roundNames = ["First Round", "Second Round", "Eastern Conference Final", "Stanley Cup Final"];
 
-    opponentOrder.forEach(opp => {
-      let games = playoffGames.filter(g => g.opponent === opp);
-  
+    const rounds = opponentOrder.map((opp, idx) => {
+      let games = parsedGames.filter(g => g.opponent === opp);
       const wins = games.filter(g => g.win === true).length;
       const losses = games.filter(g => g.win === false).length;
       const seriesOver = wins === 4 || losses === 4;
-  
       if (!seriesOver) {
-        // Only show played games + next unplayed game
         const played = games.filter(g => g.win !== null);
         const upcoming = games.filter(g => g.win === null).slice(0, 1);
         games = [...played, ...upcoming];
       }
-
-      rounds.push({
-        name: rounds.length === 0 ? "First Round" : rounds.length === 1 ? "Second Round" : "Eastern Conference Final",
+      return {
+        name: roundNames[idx] || `Round ${idx + 1}`,
         opponent: opponentNames[opp] || opp,
         games,
-      });
+      };
     });
 
     res.status(200).json({ liveGame: canesGame || null, rounds });
