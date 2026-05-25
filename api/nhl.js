@@ -43,7 +43,19 @@ export default async function handler(req, res) {
     const opponentNames = { "OTT": "Ottawa Senators", "PHI": "Philadelphia Flyers", "MTL": "Montreal Canadiens" };
 
     opponentOrder.forEach(opp => {
-      const games = playoffGames.filter(g => g.opponent === opp);
+      let games = playoffGames.filter(g => g.opponent === opp);
+  
+      const wins = games.filter(g => g.win === true).length;
+      const losses = games.filter(g => g.win === false).length;
+      const seriesOver = wins === 4 || losses === 4;
+  
+      if (!seriesOver) {
+        // Only show played games + next unplayed game
+        const played = games.filter(g => g.win !== null);
+        const upcoming = games.filter(g => g.win === null).slice(0, 1);
+        games = [...played, ...upcoming];
+      }
+
       rounds.push({
         name: rounds.length === 0 ? "First Round" : rounds.length === 1 ? "Second Round" : "Eastern Conference Final",
         opponent: opponentNames[opp] || opp,
