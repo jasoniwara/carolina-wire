@@ -160,36 +160,6 @@ const TEAMS = [
   { id: "panthers",   label: "Panthers",   sport: "NFL", color: "panthers" },
 ];
 
-const PLAYOFF_ROUNDS = [
-  {
-    name: "First Round", opponent: "Ottawa Senators", resultLabel: "W 4-0", won: true,
-    games: [
-      { g: 1, away: "OTT", home: "CAR", awayScore: 1, homeScore: 4, period: "FINAL", win: true },
-      { g: 2, away: "OTT", home: "CAR", awayScore: 1, homeScore: 3, period: "FINAL", win: true },
-      { g: 3, away: "CAR", home: "OTT", awayScore: 4, homeScore: 1, period: "FINAL", win: true },
-      { g: 4, away: "CAR", home: "OTT", awayScore: 3, homeScore: 2, period: "FINAL", win: true },
-    ],
-  },
-  {
-    name: "Second Round", opponent: "Philadelphia Flyers", resultLabel: "W 4-0", won: true,
-    games: [
-      { g: 1, away: "PHI", home: "CAR", awayScore: 2, homeScore: 5, period: "FINAL", win: true },
-      { g: 2, away: "PHI", home: "CAR", awayScore: 1, homeScore: 4, period: "FINAL", win: true },
-      { g: 3, away: "CAR", home: "PHI", awayScore: 3, homeScore: 2, period: "FINAL", win: true },
-      { g: 4, away: "CAR", home: "PHI", awayScore: 2, homeScore: 1, period: "FINAL/OT", win: true },
-    ],
-  },
-  {
-    name: "Eastern Conference Final", opponent: "Montreal Canadiens", resultLabel: "MTL 1-0", won: null,
-    games: [
-      { g: 1, away: "MTL", home: "CAR", awayScore: 6, homeScore: 2, period: "FINAL", win: false },
-      { g: 2, away: "MTL", home: "CAR", awayScore: null, homeScore: null, period: "SAT MAY 23 · 7PM ET", win: null },
-      { g: 3, away: "CAR", home: "MTL", awayScore: null, homeScore: null, period: "SUN MAY 25 · 8PM ET", win: null },
-      { g: 4, away: "CAR", home: "MTL", awayScore: null, homeScore: null, period: "TUE MAY 27 · 8PM ET", win: null },
-    ],
-  },
-];
-
 const STORIES = {
   hornets: [
     {
@@ -312,6 +282,7 @@ export default function NCSportsHub() {
   const [activeTab, setActiveTab] = useState("stories");
   const [openStory, setOpenStory] = useState(null);
   const [liveScores, setLiveScores] = useState({});
+  const [playoffRounds, setPlayoffRounds] = useState([]);
   const [messages, setMessages] = useState([
     { role: "assistant", content: "Ask me anything about the Hornets, Hurricanes, or Panthers — analytics, matchups, predictions. I'm here." }
   ]);
@@ -329,16 +300,20 @@ export default function NCSportsHub() {
         fetch("/api/nba").then(r => r.json()).catch(() => ({})),
         fetch("/api/nfl").then(r => r.json()).catch(() => ({})),
       ]);
+      if (nhl.rounds?.length) {
+        setPlayoffRounds(nhl.rounds);
+      }
       if (nhl.liveGame) {
         const g = nhl.liveGame;
         setLiveScores(prev => ({ ...prev, hurricanes: {
           away: g.awayTeam.abbrev, awayScore: g.awayTeam.score,
           home: g.homeTeam.abbrev, homeScore: g.homeTeam.score,
-          period: g.gameState === "FINAL" ? "FINAL" :
+          period: (g.gameState === "FINAL" || g.gameState === "OFF") ? 
+                  (g.gameOutcome?.lastPeriodType === "OT" ? "FINAL/OT" : "FINAL") :
                   g.periodDescriptor?.periodType === "OT" ? "OVERTIME" :
                   g.periodDescriptor?.periodType === "SO" ? "SHOOTOUT" :
                   `P${g.periodDescriptor?.number} ${g.clock?.timeRemaining || ""}`,
-          live: g.gameState === "LIVE",
+          live: g.gameState === "LIVE" || g.gameState === "CRIT",
         }}));
       }
       if (nba.liveGame) {
@@ -551,7 +526,10 @@ export default function NCSportsHub() {
                   <>
                     <div className="section-header">
                       <div className="section-title">2026 Stanley Cup Playoffs</div>
-                      <span style={{ fontFamily:"var(--font-mono)", fontSize:"0.65rem", color:"var(--carolina)" }}>8-1 Overall</span>
+                      <span style={{ fontFamily:"var(--font-mono)", fontSize:"0.65rem", color:"var(--carolina)" }}>
+                        {playoffRounds.flatMap(r=>r.games).filter(g=>g.win===true).length}-
+                        {playoffRounds.flatMap(r=>r.games).filter(g=>g.win===false).length} Overall
+                      </span>
                     </div>
                     {liveGame && liveGame.live && (
  		      <div className="score-card" style={{ borderColor:"var(--red)", marginBottom:"1.5rem" }}>
@@ -569,11 +547,13 @@ export default function NCSportsHub() {
                         </div>
                       </div>
                     )}
-                    {PLAYOFF_ROUNDS.map((round,ri) => (
+                    {playoffRounds.map((round,ri) => (
                       <div key={ri} style={{ marginBottom:"1.75rem" }}>
                         <div className="round-header" style={{ color:round.won===true?"var(--carolina)":"var(--gold)" }}>
                           <span>{round.name} · vs {round.opponent}</span>
-                          <span style={{ color:round.won===true?"#4caf50":round.won===null?"var(--gold)":"var(--red)" }}>{round.resultLabel}</span>
+                          <span style={{ color: round.games.filter(g=>g.win===true).length === 4 ? "#4caf50" : round.games.filter(g=>g.win===false).length === 4 ? "var(--red)" : "var(--gold)" }}>
+                            CAR {round.games.filter(g=>g.win===true).length}-{round.games.filter(g=>g.win===false).length}
+                          </span>
                         </div>
                         {round.games.map((g,gi) => (
                           <div className="score-card" key={gi} style={{ animationDelay:`${gi*0.06}s`, opacity:g.homeScore===null?0.5:1 }}>
